@@ -12,9 +12,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-axiom}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-axiom}
       POSTGRES_DB: ${POSTGRES_DB:-axiom}
-    ports:
-      # host port is configurable to avoid clashing with a local Postgres on 5432
-      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    # Postgres is reachable on the internal Docker network as `postgres:5432`
+    # (used by the API, the exporter and seed/ETL via `docker compose exec`).
+    # Publishing to the host is OPTIONAL — only needed to connect with a local
+    # psql / DBeaver. Uncomment and adjust the port if you want it.
+    # ports:
+    #   - "${POSTGRES_HOST_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ../sql:/docker-entrypoint-initdb.d:ro
