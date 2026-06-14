@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars and fill in your values (never commit the real file).
+project_id  = "my-gcp-project-id"
+region      = "europe-west9"
+zone        = "europe-west9-a"
+db_password = "change-me-strong-password"
+admin_cidr  = "203.0.113.4/32" # your public IP /32 — find it with: curl ifconfig.me

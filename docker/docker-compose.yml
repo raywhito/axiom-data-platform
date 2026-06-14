@@ -1,0 +1,108 @@
+# ════════════════════════════════════════════════════════════════════════════
+# AXIOM Data Platform — local stack (Block 2 demo)
+# Run from the repo root:   make up   (or)   docker compose -f docker/docker-compose.yml up -d --build
+# ════════════════════════════════════════════════════════════════════════════
+name: axiom-data-platform
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: axiom-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-axiom}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-axiom}
+      POSTGRES_DB: ${POSTGRES_DB:-axiom}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-axiom} -d ${POSTGRES_DB:-axiom}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    container_name: axiom-api
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-axiom}:${POSTGRES_PASSWORD:-axiom}@postgres:5432/${POSTGRES_DB:-axiom}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: axiom-pg-exporter
+    environment:
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-axiom}:${POSTGRES_PASSWORD:-axiom}@postgres:5432/${POSTGRES_DB:-axiom}?sslmode=disable
+      PG_EXPORTER_EXTEND_QUERY_PATH: /etc/pg_exporter/queries.yaml
+    volumes:
+      - ./prometheus/pg_queries.yaml:/etc/pg_exporter/queries.yaml:ro
+    ports:
+      - "9187:9187"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.1
+    container_name: axiom-node-exporter
+    ports:
+      - "9100:9100"
+    restart: unless-stopped
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: axiom-cadvisor
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    privileged: true
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: axiom-prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: axiom-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  promdata:
+  grafanadata:

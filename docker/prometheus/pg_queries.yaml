@@ -1,0 +1,37 @@
+# Custom business metrics exposed by postgres-exporter.
+# Each query becomes axiom_<key>_<column> metrics in Prometheus.
+axiom_oltp:
+  query: >
+    SELECT
+      (SELECT count(*) FROM oltp.patients)            AS patients,
+      (SELECT count(*) FROM oltp.analysis_reports)    AS analyses,
+      (SELECT count(*) FROM oltp.biomarker_results)   AS biomarker_results,
+      (SELECT count(*) FROM oltp.analysis_reports WHERE has_red_flags) AS analyses_with_red_flags
+  master: true
+  metrics:
+    - patients:
+        usage: "GAUGE"
+        description: "Patients in OLTP"
+    - analyses:
+        usage: "GAUGE"
+        description: "Analyses in OLTP"
+    - biomarker_results:
+        usage: "GAUGE"
+        description: "Biomarker results in OLTP"
+    - analyses_with_red_flags:
+        usage: "GAUGE"
+        description: "Analyses flagged for medical referral"
+
+axiom_warehouse:
+  query: >
+    SELECT
+      (SELECT count(*) FROM warehouse.fact_analysis)              AS fact_analysis_rows,
+      (SELECT count(*) FROM warehouse.fact_biomarker_measurement) AS fact_measurement_rows
+  master: true
+  metrics:
+    - fact_analysis_rows:
+        usage: "GAUGE"
+        description: "Rows in warehouse.fact_analysis"
+    - fact_measurement_rows:
+        usage: "GAUGE"
+        description: "Rows in warehouse.fact_biomarker_measurement"
